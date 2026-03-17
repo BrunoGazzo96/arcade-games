@@ -48,7 +48,7 @@
             display: grid;
             grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
             gap: 20px;
-            max-width: 900px;
+            max-width: 1100px;
             width: 100%;
         }
 
@@ -168,13 +168,12 @@
 
         .action-btn:hover { opacity: 0.8; }
         .btn-restart { background: #2196F3; color: white; }
-        .btn-close { background: #f44336; color: white; }
+        .btn-music { background: #9c27b0; color: white; }
 
         /* ===================== MINESWEEPER ===================== */
         #minesweeper-board {
             display: grid;
             gap: 2px;
-            margin-top: 0;
         }
 
         .ms-cell {
@@ -226,17 +225,79 @@
         .mem-card.flipped { background: #1a3a1a; border-color: lime; }
         .mem-card.matched { background: #0a2a0a; border-color: #2a5a2a; opacity: 0.7; cursor: default; }
 
-        /* ===================== PONG ===================== */
-        #pong-info {
+        /* ===================== 2048 ===================== */
+        #game-2048 {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 8px;
+            background: #1a1a1a;
+            padding: 12px;
+            border-radius: 8px;
+            width: 320px;
+        }
+
+        .tile-2048 {
+            width: 68px;
+            height: 68px;
+            border-radius: 6px;
             display: flex;
-            justify-content: space-around;
-            width: 400px;
-            margin-bottom: 10px;
+            align-items: center;
+            justify-content: center;
+            font-size: 22px;
+            font-weight: bold;
+            transition: all 0.1s;
+        }
+
+        /* ===================== MUSIC PLAYER ===================== */
+        #music-player {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            background: #1a1a1a;
+            border: 1px solid #333;
+            border-radius: 12px;
+            padding: 10px 16px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            z-index: 9999;
+            font-size: 13px;
+        }
+
+        #music-player button {
+            background: none;
+            border: none;
+            color: lime;
+            cursor: pointer;
             font-size: 18px;
+        }
+
+        #music-player .track-name {
+            color: #aaa;
+            font-size: 11px;
+            max-width: 140px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        #volume-slider {
+            width: 60px;
+            accent-color: lime;
         }
     </style>
 </head>
 <body>
+
+<!-- ===================== MUSIC PLAYER ===================== -->
+<div id="music-player">
+    <button onclick="toggleMusic()" id="music-btn">▶️</button>
+    <div>
+        <div style="color:lime;font-size:11px;">🎵 MÚSICA</div>
+        <div class="track-name" id="track-name">Presioná play</div>
+    </div>
+    <input type="range" id="volume-slider" min="0" max="1" step="0.05" value="0.3" oninput="setVolume(this.value)">
+</div>
 
 <!-- ===================== MENU PRINCIPAL ===================== -->
 <div id="menu">
@@ -285,6 +346,27 @@
             <div class="game-desc">Destruí las oleadas de aliens antes de que lleguen a vos</div>
             <div class="game-highscore">🏆 Mejor: <span id="hs-spaceinvaders">0</span></div>
         </div>
+
+        <div class="game-card" onclick="startGame('frogger')">
+            <div class="game-icon">🐸</div>
+            <div class="game-name">FROGGER</div>
+            <div class="game-desc">Cruzá la calle y el río sin morir. ¡Cuidado con los autos!</div>
+            <div class="game-highscore">🏆 Mejor: <span id="hs-frogger">0</span></div>
+        </div>
+
+        <div class="game-card" onclick="startGame('2048')">
+            <div class="game-icon">🧩</div>
+            <div class="game-name">2048</div>
+            <div class="game-desc">Combiná los números hasta llegar al 2048. ¡Pensá bien cada movimiento!</div>
+            <div class="game-highscore">🏆 Mejor: <span id="hs-2048">0</span></div>
+        </div>
+
+        <div class="game-card" onclick="startGame('arkanoid')">
+            <div class="game-icon">🎯</div>
+            <div class="game-name">ARKANOID</div>
+            <div class="game-desc">Rompé todos los bloques con la pelota sin dejarla caer</div>
+            <div class="game-highscore">🏆 Mejor: <span id="hs-arkanoid">0</span></div>
+        </div>
     </div>
 </div>
 
@@ -307,6 +389,128 @@
 
 <script>
 // =============================================
+// 🎵 SISTEMA DE MÚSICA (Web Audio API)
+// =============================================
+let audioCtx = null;
+let musicPlaying = false;
+let musicNodes = [];
+let masterGain = null;
+
+function initAudio() {
+    audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    masterGain = audioCtx.createGain();
+    masterGain.gain.value = 0.3;
+    masterGain.connect(audioCtx.destination);
+}
+
+function setVolume(v) {
+    if (masterGain) masterGain.gain.value = parseFloat(v);
+}
+
+// Genera música chiptune procedural con Web Audio API
+function playChiptune() {
+    if (!audioCtx) initAudio();
+    stopMusic();
+    musicPlaying = true;
+    document.getElementById('music-btn').textContent = '⏸️';
+    document.getElementById('track-name').textContent = 'Chiptune Arcade 🎮';
+
+    // Melodía principal (estilo arcade clásico)
+    const melody = [
+        // Nota, duración en beats
+        [523,0.5],[523,0.5],[784,0.5],[659,0.5],
+        [698,0.5],[523,0.5],[440,0.5],[392,0.5],
+        [349,0.5],[349,0.5],[523,0.5],[659,0.5],
+        [698,1],[698,1],
+        [523,0.5],[523,0.5],[784,0.5],[659,0.5],
+        [698,0.5],[523,0.5],[1047,0.5],[880,0.5],
+        [784,0.5],[698,0.5],[659,0.5],[587,0.5],
+        [523,2],
+    ];
+
+    const bassLine = [
+        [131,1],[196,1],[220,1],[175,1],
+        [131,1],[196,1],[220,1],[175,1],
+        [131,1],[196,1],[220,1],[175,1],
+        [131,1],[196,1],[220,1],[175,1],
+    ];
+
+    const BPM = 160;
+    const beatDur = 60 / BPM;
+
+    function scheduleMelody(notes, loop, type='square', gainVal=0.08) {
+        let time = audioCtx.currentTime + 0.05;
+        let totalDur = notes.reduce((a,n)=>a+n[1]*beatDur,0);
+        const scheduleOnce = (startTime) => {
+            notes.forEach(([freq, beats]) => {
+                const osc = audioCtx.createOscillator();
+                const g = audioCtx.createGain();
+                osc.type = type;
+                osc.frequency.value = freq;
+                g.gain.setValueAtTime(gainVal, startTime);
+                g.gain.exponentialRampToValueAtTime(0.001, startTime + beats * beatDur - 0.02);
+                osc.connect(g);
+                g.connect(masterGain);
+                osc.start(startTime);
+                osc.stop(startTime + beats * beatDur);
+                musicNodes.push(osc);
+                startTime += beats * beatDur;
+            });
+            return startTime;
+        };
+        let t = scheduleOnce(time);
+        if (loop) {
+            // Loop cada 4 segundos aprox
+            const interval = setInterval(() => {
+                if (!musicPlaying) { clearInterval(interval); return; }
+                scheduleOnce(audioCtx.currentTime + 0.05);
+            }, totalDur * 1000 - 50);
+            musicNodes.push({ stop: () => clearInterval(interval) });
+        }
+    }
+
+    scheduleMelody(melody, true, 'square', 0.07);
+    scheduleMelody(bassLine, true, 'sawtooth', 0.04);
+
+    // Hi-hat / ritmo
+    function scheduleBeats() {
+        if (!musicPlaying) return;
+        const now = audioCtx.currentTime;
+        for (let i = 0; i < 8; i++) {
+            const t = now + i * beatDur * 0.5;
+            const bufSize = audioCtx.sampleRate * 0.05;
+            const buf = audioCtx.createBuffer(1, bufSize, audioCtx.sampleRate);
+            const data = buf.getChannelData(0);
+            for (let j = 0; j < bufSize; j++) data[j] = (Math.random() * 2 - 1) * (1 - j / bufSize);
+            const src = audioCtx.createBufferSource();
+            src.buffer = buf;
+            const g = audioCtx.createGain();
+            g.gain.value = 0.03;
+            src.connect(g);
+            g.connect(masterGain);
+            src.start(t);
+            musicNodes.push(src);
+        }
+        const timeout = setTimeout(scheduleBeats, beatDur * 0.5 * 8 * 1000 - 100);
+        musicNodes.push({ stop: () => clearTimeout(timeout) });
+    }
+    scheduleBeats();
+}
+
+function stopMusic() {
+    musicPlaying = false;
+    document.getElementById('music-btn').textContent = '▶️';
+    document.getElementById('track-name').textContent = 'Presioná play';
+    musicNodes.forEach(n => { try { n.stop(); } catch(e){} });
+    musicNodes = [];
+}
+
+function toggleMusic() {
+    if (musicPlaying) stopMusic();
+    else playChiptune();
+}
+
+// =============================================
 // SISTEMA DE NAVEGACIÓN
 // =============================================
 let currentGame = null;
@@ -319,6 +523,9 @@ const highScores = {
     minesweeper: parseInt(localStorage.getItem('hs_minesweeper')) || 0,
     memory: localStorage.getItem('hs_memory') || '--',
     spaceinvaders: parseInt(localStorage.getItem('hs_spaceinvaders')) || 0,
+    frogger: parseInt(localStorage.getItem('hs_frogger')) || 0,
+    '2048': parseInt(localStorage.getItem('hs_2048')) || 0,
+    arkanoid: parseInt(localStorage.getItem('hs_arkanoid')) || 0,
 };
 
 function updateHighScoreDisplays() {
@@ -357,12 +564,10 @@ function startGame(game) {
     gs.style.display = 'flex';
 
     const titles = {
-        snake: '🐍 SNAKE',
-        pong: '🏓 PONG',
-        tetris: '🧱 TETRIS',
-        minesweeper: '💣 BUSCAMINAS',
-        memory: '🃏 MEMORY',
-        spaceinvaders: '👾 SPACE INVADERS'
+        snake: '🐍 SNAKE', pong: '🏓 PONG', tetris: '🧱 TETRIS',
+        minesweeper: '💣 BUSCAMINAS', memory: '🃏 MEMORY',
+        spaceinvaders: '👾 SPACE INVADERS', frogger: '🐸 FROGGER',
+        '2048': '🧩 2048', arkanoid: '🎯 ARKANOID'
     };
 
     document.getElementById('game-title-header').textContent = titles[game];
@@ -371,27 +576,31 @@ function startGame(game) {
 
     const hints = {
         snake: '⬆⬇⬅➡ Flechas para moverse | ESPACIO para pausar',
-        pong: '⬆⬇ Flechas para mover tu paleta (derecha) | La IA controla la izquierda',
-        tetris: '⬅➡ Mover | ⬆ Rotar | ⬇ Bajar rápido | ESPACIO caída instantánea',
-        minesweeper: 'Click izquierdo para revelar | Click derecho para marcar bandera 🚩',
-        memory: 'Hacé click en las cartas para voltearlas y encontrá los pares',
-        spaceinvaders: '⬅➡ Mover | ESPACIO para disparar'
+        pong: '⬆⬇ Flechas para mover tu paleta | La IA controla la izquierda',
+        tetris: '⬅➡ Mover | ⬆ Rotar | ⬇ Bajar | ESPACIO caída instantánea',
+        minesweeper: 'Click izquierdo para revelar | Click derecho para bandera 🚩',
+        memory: 'Hacé click en las cartas para voltearlas',
+        spaceinvaders: '⬅➡ Mover | ESPACIO para disparar',
+        frogger: '⬆⬇⬅➡ Flechas para mover la rana',
+        '2048': '⬆⬇⬅➡ Flechas para combinar los números',
+        arkanoid: '⬅➡ Flechas o mouse para mover la paleta | ESPACIO para lanzar'
     };
     document.getElementById('controls-hint').textContent = hints[game];
 
-    // Iniciar el juego correspondiente
     if (game === 'snake') gameCleanup = initSnake();
     else if (game === 'pong') gameCleanup = initPong();
     else if (game === 'tetris') gameCleanup = initTetris();
     else if (game === 'minesweeper') gameCleanup = initMinesweeper();
     else if (game === 'memory') gameCleanup = initMemory();
     else if (game === 'spaceinvaders') gameCleanup = initSpaceInvaders();
+    else if (game === 'frogger') gameCleanup = initFrogger();
+    else if (game === '2048') gameCleanup = init2048();
+    else if (game === 'arkanoid') gameCleanup = initArkanoid();
 }
 
 function goToMenu() {
     if (gameCleanup) gameCleanup();
-    gameCleanup = null;
-    currentGame = null;
+    gameCleanup = null; currentGame = null;
     document.getElementById('game-screen').style.display = 'none';
     document.getElementById('menu').style.display = 'flex';
     updateHighScoreDisplays();
@@ -408,6 +617,9 @@ function restartCurrentGame() {
         else if (currentGame === 'minesweeper') gameCleanup = initMinesweeper();
         else if (currentGame === 'memory') gameCleanup = initMemory();
         else if (currentGame === 'spaceinvaders') gameCleanup = initSpaceInvaders();
+        else if (currentGame === 'frogger') gameCleanup = initFrogger();
+        else if (currentGame === '2048') gameCleanup = init2048();
+        else if (currentGame === 'arkanoid') gameCleanup = initArkanoid();
     }
 }
 
@@ -415,67 +627,53 @@ function restartCurrentGame() {
 // 🐍 SNAKE
 // =============================================
 function initSnake() {
-    const GRID = 20, SIZE = 400;
-    const canvas = document.createElement('canvas');
-    canvas.width = SIZE; canvas.height = SIZE;
+    const GRID=20, SIZE=400;
+    const canvas=document.createElement('canvas');
+    canvas.width=SIZE; canvas.height=SIZE;
     document.getElementById('game-container').appendChild(canvas);
-    const ctx = canvas.getContext('2d');
-
-    let snake, dx, dy, food, score, level, changingDir, interval;
+    const ctx=canvas.getContext('2d');
+    let snake,dx,dy,food,score,level,changingDir,interval,paused;
 
     function reset() {
-        snake = [{x:200, y:200}];
-        dx = GRID; dy = 0;
-        score = 0; level = 1;
-        changingDir = false;
+        snake=[{x:200,y:200}]; dx=GRID; dy=0;
+        score=0; level=1; changingDir=false; paused=false;
         setScore(`⭐ ${score} | 🚀 Nivel ${level}`);
         placeFood();
         clearInterval(interval);
-        interval = setInterval(loop, 100);
+        interval=setInterval(loop,100);
     }
 
     function placeFood() {
-        do {
-            food = {
-                x: Math.floor(Math.random()*(SIZE/GRID))*GRID,
-                y: Math.floor(Math.random()*(SIZE/GRID))*GRID
-            };
-        } while (snake.some(s=>s.x===food.x&&s.y===food.y));
+        do { food={x:Math.floor(Math.random()*(SIZE/GRID))*GRID,y:Math.floor(Math.random()*(SIZE/GRID))*GRID}; }
+        while(snake.some(s=>s.x===food.x&&s.y===food.y));
     }
 
     function loop() {
-        changingDir = false;
-        const head = {x: snake[0].x+dx, y: snake[0].y+dy};
-        if (head.x<0||head.x>=SIZE||head.y<0||head.y>=SIZE||snake.slice(1).some(s=>s.x===head.x&&s.y===head.y)) {
-            saveHighScore('snake', score);
-            drawGameOver(ctx, SIZE, score);
-            clearInterval(interval);
-            return;
+        if(paused) return;
+        changingDir=false;
+        const head={x:snake[0].x+dx,y:snake[0].y+dy};
+        if(head.x<0||head.x>=SIZE||head.y<0||head.y>=SIZE||snake.slice(1).some(s=>s.x===head.x&&s.y===head.y)){
+            saveHighScore('snake',score); drawGameOver(ctx,SIZE,score); clearInterval(interval); return;
         }
         snake.unshift(head);
-        if (head.x===food.x&&head.y===food.y) {
-            score += 10*level;
-            const nl = Math.floor(score/50)+1;
-            if (nl>level) { level=nl; clearInterval(interval); interval=setInterval(loop, Math.max(50,100-level*8)); }
-            placeFood();
-            setScore(`⭐ ${score} | 🚀 Nivel ${level}`);
+        if(head.x===food.x&&head.y===food.y){
+            score+=10*level;
+            const nl=Math.floor(score/50)+1;
+            if(nl>level){level=nl;clearInterval(interval);interval=setInterval(loop,Math.max(50,100-level*8));}
+            placeFood(); setScore(`⭐ ${score} | 🚀 Nivel ${level}`);
         } else snake.pop();
         draw();
     }
 
     function draw() {
         ctx.fillStyle='#111'; ctx.fillRect(0,0,SIZE,SIZE);
-        // Grid
         ctx.strokeStyle='rgba(255,255,255,0.03)'; ctx.lineWidth=0.5;
         for(let x=0;x<SIZE;x+=GRID){ctx.beginPath();ctx.moveTo(x,0);ctx.lineTo(x,SIZE);ctx.stroke();}
         for(let y=0;y<SIZE;y+=GRID){ctx.beginPath();ctx.moveTo(0,y);ctx.lineTo(SIZE,y);ctx.stroke();}
-        // Comida
         ctx.shadowColor='red'; ctx.shadowBlur=10;
         ctx.fillStyle='#ff4444';
-        ctx.beginPath();
-        ctx.arc(food.x+GRID/2,food.y+GRID/2,GRID/2-2,0,Math.PI*2);
-        ctx.fill(); ctx.shadowBlur=0;
-        // Serpiente
+        ctx.beginPath(); ctx.arc(food.x+GRID/2,food.y+GRID/2,GRID/2-2,0,Math.PI*2); ctx.fill();
+        ctx.shadowBlur=0;
         snake.forEach((p,i)=>{
             const ratio=i/snake.length;
             ctx.fillStyle=`rgb(0,${Math.floor(255-ratio*155)},0)`;
@@ -483,165 +681,107 @@ function initSnake() {
             ctx.fillRect(p.x+1,p.y+1,GRID-2,GRID-2);
         });
         ctx.shadowBlur=0;
-        // Ojos
-        const h=snake[0];
-        ctx.fillStyle='black';
+        const h=snake[0]; ctx.fillStyle='black';
         if(dx>0){ctx.fillRect(h.x+12,h.y+4,3,3);ctx.fillRect(h.x+12,h.y+13,3,3);}
         else if(dx<0){ctx.fillRect(h.x+5,h.y+4,3,3);ctx.fillRect(h.x+5,h.y+13,3,3);}
         else if(dy<0){ctx.fillRect(h.x+4,h.y+5,3,3);ctx.fillRect(h.x+13,h.y+5,3,3);}
         else{ctx.fillRect(h.x+4,h.y+12,3,3);ctx.fillRect(h.x+13,h.y+12,3,3);}
     }
 
-    let paused = false;
     function keyHandler(e) {
-        if(['ArrowUp','ArrowDown','ArrowLeft','ArrowRight',' '].includes(e.key)) e.preventDefault();
+        if(['ArrowUp','ArrowDown','ArrowLeft','ArrowRight',' '].includes(e.key))e.preventDefault();
         if(e.key===' '){
             paused=!paused;
             if(paused){ctx.fillStyle='rgba(0,0,0,0.6)';ctx.fillRect(0,0,SIZE,SIZE);ctx.fillStyle='white';ctx.font='bold 30px Courier New';ctx.textAlign='center';ctx.fillText('⏸ PAUSA',SIZE/2,SIZE/2);ctx.textAlign='left';}
             return;
         }
-        if(paused||changingDir) return;
+        if(paused||changingDir)return;
         changingDir=true;
         if(e.key==='ArrowLeft'&&dx===0){dx=-GRID;dy=0;}
         else if(e.key==='ArrowUp'&&dy===0){dx=0;dy=-GRID;}
         else if(e.key==='ArrowRight'&&dx===0){dx=GRID;dy=0;}
         else if(e.key==='ArrowDown'&&dy===0){dx=0;dy=GRID;}
     }
-    document.addEventListener('keydown', keyHandler);
+    document.addEventListener('keydown',keyHandler);
     reset();
-    return ()=>{ clearInterval(interval); document.removeEventListener('keydown',keyHandler); };
+    return ()=>{clearInterval(interval);document.removeEventListener('keydown',keyHandler);};
 }
 
 // =============================================
 // 🏓 PONG
 // =============================================
 function initPong() {
-    const W=400, H=400;
-    const canvas = document.createElement('canvas');
+    const W=400,H=400;
+    const canvas=document.createElement('canvas');
     canvas.width=W; canvas.height=H;
     document.getElementById('game-container').appendChild(canvas);
-    const ctx = canvas.getContext('2d');
-
-    const PAD_H=60, PAD_W=10, BALL_SIZE=8, WIN_SCORE=7;
-    let playerY, aiY, ballX, ballY, ballDX, ballDY, playerScore, aiScore, animId;
+    const ctx=canvas.getContext('2d');
+    const PAD_H=60,PAD_W=10,BALL_SIZE=8,WIN_SCORE=7;
+    let playerY,aiY,ballX,ballY,ballDX,ballDY,playerScore,aiScore,animId,keys={};
 
     function reset() {
         playerY=H/2-PAD_H/2; aiY=H/2-PAD_H/2;
         ballX=W/2; ballY=H/2;
         const angle=(Math.random()*Math.PI/2)-Math.PI/4;
         const dir=Math.random()>0.5?1:-1;
-        ballDX=3.5*dir*Math.cos(angle);
-        ballDY=3.5*Math.sin(angle);
+        ballDX=3.5*dir; ballDY=3.5*Math.sin(angle);
         playerScore=0; aiScore=0;
         setScore(`👤 ${playerScore} - ${aiScore} 🤖`);
     }
 
-    let keys={};
-    function keyDown(e){
-        if(['ArrowUp','ArrowDown'].includes(e.key))e.preventDefault();
-        keys[e.key]=true;
-    }
+    function keyDown(e){if(['ArrowUp','ArrowDown'].includes(e.key))e.preventDefault();keys[e.key]=true;}
     function keyUp(e){keys[e.key]=false;}
     document.addEventListener('keydown',keyDown);
     document.addEventListener('keyup',keyUp);
 
-    function loop() {
-        // Mover jugador
-        if(keys['ArrowUp']&&playerY>0) playerY-=5;
-        if(keys['ArrowDown']&&playerY<H-PAD_H) playerY+=5;
-
-        // IA suave
-        const aiCenter=aiY+PAD_H/2;
-        if(aiCenter<ballY-5) aiY+=3.5;
-        else if(aiCenter>ballY+5) aiY-=3.5;
-        aiY=Math.max(0,Math.min(H-PAD_H,aiY));
-
-        // Mover bola
-        ballX+=ballDX; ballY+=ballDY;
-
-        // Rebote techo/piso
-        if(ballY<=0){ballY=0;ballDY*=-1;}
-        if(ballY>=H-BALL_SIZE){ballY=H-BALL_SIZE;ballDY*=-1;}
-
-        // Colisión paletas
-        if(ballX<=PAD_W+10&&ballY+BALL_SIZE>=aiY&&ballY<=aiY+PAD_H&&ballDX<0){
-            ballDX*=-1.05; ballX=PAD_W+10;
-            ballDY+=((ballY+BALL_SIZE/2)-(aiY+PAD_H/2))*0.1;
-        }
-        if(ballX>=W-PAD_W-10-BALL_SIZE&&ballY+BALL_SIZE>=playerY&&ballY<=playerY+PAD_H&&ballDX>0){
-            ballDX*=-1.05; ballX=W-PAD_W-10-BALL_SIZE;
-            ballDY+=((ballY+BALL_SIZE/2)-(playerY+PAD_H/2))*0.1;
-        }
-
-        // Limitar velocidad
-        const speed=Math.sqrt(ballDX*ballDX+ballDY*ballDY);
-        if(speed>8){ballDX=ballDX/speed*8;ballDY=ballDY/speed*8;}
-
-        // Puntos
-        if(ballX<0){
-            playerScore++;
-            setScore(`👤 ${playerScore} - ${aiScore} 🤖`);
-            if(playerScore>=WIN_SCORE){drawWin(ctx,W,H,'¡Ganaste! 🎉');saveHighScore('pong',playerScore);cancelAnimationFrame(animId);return;}
-            serveBall();
-        }
-        if(ballX>W){
-            aiScore++;
-            setScore(`👤 ${playerScore} - ${aiScore} 🤖`);
-            if(aiScore>=WIN_SCORE){drawWin(ctx,W,H,'La IA ganó 🤖');cancelAnimationFrame(animId);return;}
-            serveBall();
-        }
-
-        draw();
-        animId=requestAnimationFrame(loop);
-    }
-
-    function serveBall() {
-        ballX=W/2; ballY=H/2;
+    function serveBall(){
+        ballX=W/2;ballY=H/2;
         const angle=(Math.random()*Math.PI/2)-Math.PI/4;
         const dir=Math.random()>0.5?1:-1;
         ballDX=3.5*dir; ballDY=3.5*Math.sin(angle);
     }
 
-    function draw() {
-        ctx.fillStyle='#111'; ctx.fillRect(0,0,W,H);
-        // Línea central
-        ctx.setLineDash([10,10]); ctx.strokeStyle='#333'; ctx.lineWidth=2;
-        ctx.beginPath(); ctx.moveTo(W/2,0); ctx.lineTo(W/2,H); ctx.stroke();
-        ctx.setLineDash([]);
-        // Paletas
-        ctx.fillStyle='lime';
-        ctx.fillRect(10,aiY,PAD_W,PAD_H);
-        ctx.fillStyle='#4af';
-        ctx.fillRect(W-PAD_W-10,playerY,PAD_W,PAD_H);
-        // Bola
-        ctx.shadowColor='white'; ctx.shadowBlur=10;
-        ctx.fillStyle='white';
-        ctx.fillRect(ballX,ballY,BALL_SIZE,BALL_SIZE);
-        ctx.shadowBlur=0;
-        // Scores
-        ctx.fillStyle='rgba(255,255,255,0.2)';
-        ctx.font='bold 60px Courier New';
-        ctx.textAlign='center';
-        ctx.fillText(aiScore,W/4,70);
-        ctx.fillText(playerScore,3*W/4,70);
-        ctx.textAlign='left';
+    function loop() {
+        if(keys['ArrowUp']&&playerY>0)playerY-=5;
+        if(keys['ArrowDown']&&playerY<H-PAD_H)playerY+=5;
+        const aiCenter=aiY+PAD_H/2;
+        if(aiCenter<ballY-5)aiY+=3.5; else if(aiCenter>ballY+5)aiY-=3.5;
+        aiY=Math.max(0,Math.min(H-PAD_H,aiY));
+        ballX+=ballDX; ballY+=ballDY;
+        if(ballY<=0){ballY=0;ballDY*=-1;}
+        if(ballY>=H-BALL_SIZE){ballY=H-BALL_SIZE;ballDY*=-1;}
+        if(ballX<=PAD_W+10&&ballY+BALL_SIZE>=aiY&&ballY<=aiY+PAD_H&&ballDX<0){
+            ballDX*=-1.05;ballX=PAD_W+10;ballDY+=((ballY+BALL_SIZE/2)-(aiY+PAD_H/2))*0.1;
+        }
+        if(ballX>=W-PAD_W-10-BALL_SIZE&&ballY+BALL_SIZE>=playerY&&ballY<=playerY+PAD_H&&ballDX>0){
+            ballDX*=-1.05;ballX=W-PAD_W-10-BALL_SIZE;ballDY+=((ballY+BALL_SIZE/2)-(playerY+PAD_H/2))*0.1;
+        }
+        const speed=Math.sqrt(ballDX*ballDX+ballDY*ballDY);
+        if(speed>8){ballDX=ballDX/speed*8;ballDY=ballDY/speed*8;}
+        if(ballX<0){playerScore++;setScore(`👤 ${playerScore} - ${aiScore} 🤖`);if(playerScore>=WIN_SCORE){drawWin(ctx,W,H,'¡Ganaste! 🎉');saveHighScore('pong',playerScore);cancelAnimationFrame(animId);return;}serveBall();}
+        if(ballX>W){aiScore++;setScore(`👤 ${playerScore} - ${aiScore} 🤖`);if(aiScore>=WIN_SCORE){drawWin(ctx,W,H,'La IA ganó 🤖');cancelAnimationFrame(animId);return;}serveBall();}
+        ctx.fillStyle='#111';ctx.fillRect(0,0,W,H);
+        ctx.setLineDash([10,10]);ctx.strokeStyle='#333';ctx.lineWidth=2;
+        ctx.beginPath();ctx.moveTo(W/2,0);ctx.lineTo(W/2,H);ctx.stroke();ctx.setLineDash([]);
+        ctx.fillStyle='lime';ctx.fillRect(10,aiY,PAD_W,PAD_H);
+        ctx.fillStyle='#4af';ctx.fillRect(W-PAD_W-10,playerY,PAD_W,PAD_H);
+        ctx.shadowColor='white';ctx.shadowBlur=10;ctx.fillStyle='white';ctx.fillRect(ballX,ballY,BALL_SIZE,BALL_SIZE);ctx.shadowBlur=0;
+        ctx.fillStyle='rgba(255,255,255,0.2)';ctx.font='bold 60px Courier New';ctx.textAlign='center';
+        ctx.fillText(aiScore,W/4,70);ctx.fillText(playerScore,3*W/4,70);ctx.textAlign='left';
+        animId=requestAnimationFrame(loop);
     }
 
     reset();
     animId=requestAnimationFrame(loop);
-    return ()=>{
-        cancelAnimationFrame(animId);
-        document.removeEventListener('keydown',keyDown);
-        document.removeEventListener('keyup',keyUp);
-    };
+    return ()=>{cancelAnimationFrame(animId);document.removeEventListener('keydown',keyDown);document.removeEventListener('keyup',keyUp);};
 }
 
 // =============================================
 // 🧱 TETRIS
 // =============================================
 function initTetris() {
-    const COLS=10, ROWS=20, BLOCK=24;
-    const W=COLS*BLOCK, H=ROWS*BLOCK;
+    const COLS=10,ROWS=20,BLOCK=24;
+    const W=COLS*BLOCK,H=ROWS*BLOCK;
     const canvas=document.createElement('canvas');
     canvas.width=W; canvas.height=H;
     document.getElementById('game-container').appendChild(canvas);
@@ -657,83 +797,59 @@ function initTetris() {
         {shape:[[0,1,1],[1,1,0]],color:'#f00'},
     ];
 
-    let board, score, lines, level, current, interval, gameOver;
+    let board,score,lines,level,current,interval,gameOver;
 
     function newBoard(){return Array.from({length:ROWS},()=>Array(COLS).fill(0));}
-
     function newPiece(){
         const p=PIECES[Math.floor(Math.random()*PIECES.length)];
-        return {shape:p.shape.map(r=>[...r]),color:p.color,x:Math.floor(COLS/2)-Math.floor(p.shape[0].length/2),y:0};
+        return{shape:p.shape.map(r=>[...r]),color:p.color,x:Math.floor(COLS/2)-Math.floor(p.shape[0].length/2),y:0};
     }
-
     function rotate(s){return s[0].map((_,i)=>s.map(r=>r[i]).reverse());}
-
     function valid(s,ox,oy){
         return s.every((row,dy)=>row.every((v,dx)=>{
             if(!v)return true;
-            const nx=ox+dx, ny=oy+dy;
+            const nx=ox+dx,ny=oy+dy;
             return nx>=0&&nx<COLS&&ny<ROWS&&(ny<0||!board[ny][nx]);
         }));
     }
 
     function place(){
-        current.shape.forEach((row,dy)=>row.forEach((v,dx)=>{
-            if(v)board[current.y+dy][current.x+dx]=current.color;
-        }));
-        // Limpiar líneas
+        current.shape.forEach((row,dy)=>row.forEach((v,dx)=>{if(v)board[current.y+dy][current.x+dx]=current.color;}));
         let cleared=0;
-        for(let r=ROWS-1;r>=0;r--){
-            if(board[r].every(c=>c)){board.splice(r,1);board.unshift(Array(COLS).fill(0));cleared++;r++;}
-        }
+        for(let r=ROWS-1;r>=0;r--){if(board[r].every(c=>c)){board.splice(r,1);board.unshift(Array(COLS).fill(0));cleared++;r++;}}
         if(cleared){
             const pts=[0,100,300,500,800];
-            score+=(pts[cleared]||1000)*level;
-            lines+=cleared;
-            level=Math.floor(lines/10)+1;
+            score+=(pts[cleared]||1000)*level; lines+=cleared; level=Math.floor(lines/10)+1;
             setScore(`⭐ ${score} | Líneas ${lines} | Nv ${level}`);
-            clearInterval(interval);
-            interval=setInterval(drop,Math.max(80,500-level*40));
+            clearInterval(interval); interval=setInterval(drop,Math.max(80,500-level*40));
         }
         current=newPiece();
         if(!valid(current.shape,current.x,current.y)){
-            gameOver=true;
-            saveHighScore('tetris',score);
-            drawGameOver(ctx,W,score);
-            clearInterval(interval);
+            gameOver=true; saveHighScore('tetris',score); drawGameOver(ctx,W,score); clearInterval(interval);
         }
     }
 
-    function drop(){
-        if(gameOver)return;
-        if(valid(current.shape,current.x,current.y+1)) current.y++;
-        else place();
-        draw();
+    function drop(){if(gameOver)return;if(valid(current.shape,current.x,current.y+1))current.y++;else place();draw();}
+
+    function drawBlock(ctx,x,y,color){
+        ctx.fillStyle=color; ctx.fillRect(x*BLOCK+1,y*BLOCK+1,BLOCK-2,BLOCK-2);
+        ctx.fillStyle='rgba(255,255,255,0.2)';
+        ctx.fillRect(x*BLOCK+1,y*BLOCK+1,BLOCK-2,4);
+        ctx.fillRect(x*BLOCK+1,y*BLOCK+1,4,BLOCK-2);
     }
 
     function draw(){
-        ctx.fillStyle='#111'; ctx.fillRect(0,0,W,H);
-        // Grid
-        ctx.strokeStyle='rgba(255,255,255,0.05)'; ctx.lineWidth=0.5;
+        ctx.fillStyle='#111';ctx.fillRect(0,0,W,H);
+        ctx.strokeStyle='rgba(255,255,255,0.05)';ctx.lineWidth=0.5;
         for(let x=0;x<W;x+=BLOCK){ctx.beginPath();ctx.moveTo(x,0);ctx.lineTo(x,H);ctx.stroke();}
         for(let y=0;y<H;y+=BLOCK){ctx.beginPath();ctx.moveTo(0,y);ctx.lineTo(W,y);ctx.stroke();}
-        // Board
-        board.forEach((row,r)=>row.forEach((c,col)=>{if(c){drawBlock(ctx,col,r,c);}}));
-        // Ghost piece
+        board.forEach((row,r)=>row.forEach((c,col)=>{if(c)drawBlock(ctx,col,r,c);}));
         let ghostY=current.y;
         while(valid(current.shape,current.x,ghostY+1))ghostY++;
         current.shape.forEach((row,dy)=>row.forEach((v,dx)=>{
             if(v){ctx.fillStyle='rgba(255,255,255,0.1)';ctx.fillRect((current.x+dx)*BLOCK+1,(ghostY+dy)*BLOCK+1,BLOCK-2,BLOCK-2);}
         }));
-        // Pieza actual
         current.shape.forEach((row,dy)=>row.forEach((v,dx)=>{if(v)drawBlock(ctx,current.x+dx,current.y+dy,current.color);}));
-    }
-
-    function drawBlock(ctx,x,y,color){
-        ctx.fillStyle=color;
-        ctx.fillRect(x*BLOCK+1,y*BLOCK+1,BLOCK-2,BLOCK-2);
-        ctx.fillStyle='rgba(255,255,255,0.2)';
-        ctx.fillRect(x*BLOCK+1,y*BLOCK+1,BLOCK-2,4);
-        ctx.fillRect(x*BLOCK+1,y*BLOCK+1,4,BLOCK-2);
     }
 
     function keyHandler(e){
@@ -746,12 +862,9 @@ function initTetris() {
         else if(e.key===' '){while(valid(current.shape,current.x,current.y+1))current.y++;place();draw();}
     }
     document.addEventListener('keydown',keyHandler);
-
-    board=newBoard(); score=0; lines=0; level=1; gameOver=false;
-    current=newPiece();
-    setScore(`⭐ 0 | Líneas 0 | Nv 1`);
-    interval=setInterval(drop,500);
-    draw();
+    board=newBoard();score=0;lines=0;level=1;gameOver=false;
+    current=newPiece();setScore('⭐ 0 | Líneas 0 | Nv 1');
+    interval=setInterval(drop,500); draw();
     return ()=>{clearInterval(interval);document.removeEventListener('keydown',keyHandler);};
 }
 
@@ -759,22 +872,20 @@ function initTetris() {
 // 💣 BUSCAMINAS
 // =============================================
 function initMinesweeper() {
-    const ROWS=9, COLS=9, MINES=10;
-    let board, revealed, flagged, firstClick, gameOver;
-
+    const ROWS=9,COLS=9,MINES=10;
+    let board,revealed,flagged,firstClick,gameOver;
     const container=document.getElementById('game-container');
     const msBoard=document.createElement('div');
     msBoard.id='minesweeper-board';
     msBoard.style.gridTemplateColumns=`repeat(${COLS},32px)`;
     container.appendChild(msBoard);
-
     const COLORS=['','#4af','#4f4','#f44','#44f','#f84','#4ff','#f4f','#888'];
 
     function init(){
         board=Array.from({length:ROWS},()=>Array(COLS).fill(0));
         revealed=Array.from({length:ROWS},()=>Array(COLS).fill(false));
         flagged=Array.from({length:ROWS},()=>Array(COLS).fill(false));
-        firstClick=true; gameOver=false;
+        firstClick=true;gameOver=false;
         setScore(`💣 ${MINES} minas | 🚩 0 banderas`);
         renderBoard();
     }
@@ -782,17 +893,13 @@ function initMinesweeper() {
     function placeMines(sr,sc){
         let placed=0;
         while(placed<MINES){
-            const r=Math.floor(Math.random()*ROWS);
-            const c=Math.floor(Math.random()*COLS);
+            const r=Math.floor(Math.random()*ROWS),c=Math.floor(Math.random()*COLS);
             if(board[r][c]===0&&!(r===sr&&c===sc)){board[r][c]=-1;placed++;}
         }
         for(let r=0;r<ROWS;r++)for(let c=0;c<COLS;c++){
             if(board[r][c]===-1)continue;
             let count=0;
-            for(let dr=-1;dr<=1;dr++)for(let dc=-1;dc<=1;dc++){
-                const nr=r+dr,nc=c+dc;
-                if(nr>=0&&nr<ROWS&&nc>=0&&nc<COLS&&board[nr][nc]===-1)count++;
-            }
+            for(let dr=-1;dr<=1;dr++)for(let dc=-1;dc<=1;dc++){const nr=r+dr,nc=c+dc;if(nr>=0&&nr<ROWS&&nc>=0&&nc<COLS&&board[nr][nc]===-1)count++;}
             board[r][c]=count;
         }
     }
@@ -803,11 +910,7 @@ function initMinesweeper() {
         if(board[r][c]===0)for(let dr=-1;dr<=1;dr++)for(let dc=-1;dc<=1;dc++)reveal(r+dr,c+dc);
     }
 
-    function checkWin(){
-        let unrevealed=0;
-        for(let r=0;r<ROWS;r++)for(let c=0;c<COLS;c++)if(!revealed[r][c])unrevealed++;
-        return unrevealed===MINES;
-    }
+    function checkWin(){let u=0;for(let r=0;r<ROWS;r++)for(let c=0;c<COLS;c++)if(!revealed[r][c])u++;return u===MINES;}
 
     function renderBoard(){
         msBoard.innerHTML='';
@@ -817,53 +920,32 @@ function initMinesweeper() {
             const cell=document.createElement('div');
             cell.className='ms-cell';
             const rr=r,cc=c;
-
             if(revealed[r][c]){
                 cell.classList.add('revealed');
                 if(board[r][c]===-1){cell.textContent='💣';cell.classList.add('mine-exploded');}
                 else if(board[r][c]>0){cell.textContent=board[r][c];cell.style.color=COLORS[board[r][c]];}
-            } else if(flagged[r][c]){
-                cell.textContent='🚩';
-            } else {
-                cell.style.cursor='pointer';
-            }
-
+            } else if(flagged[r][c]){cell.textContent='🚩';}
             if(!gameOver&&!revealed[r][c]){
                 cell.addEventListener('click',()=>{
                     if(flagged[rr][cc])return;
                     if(firstClick){firstClick=false;placeMines(rr,cc);}
                     if(board[rr][cc]===-1){
-                        revealed[rr][cc]=true;
-                        gameOver=true;
-                        // Revelar todo
+                        revealed[rr][cc]=true;gameOver=true;
                         for(let i=0;i<ROWS;i++)for(let j=0;j<COLS;j++)if(board[i][j]===-1)revealed[i][j]=true;
-                        renderBoard();
-                        setTimeout(()=>alert('💥 ¡BOOM! Pisaste una mina. Intentalo de nuevo.'),100);
-                        return;
+                        renderBoard();setTimeout(()=>alert('💥 ¡BOOM! Intentalo de nuevo.'),100);return;
                     }
                     reveal(rr,cc);
-                    if(checkWin()){
-                        gameOver=true;
-                        saveHighScore('minesweeper',1);
-                        setTimeout(()=>alert('🎉 ¡Ganaste! Encontraste todas las minas.'),100);
-                    }
+                    if(checkWin()){gameOver=true;saveHighScore('minesweeper',1);setTimeout(()=>alert('🎉 ¡Ganaste!'),100);}
                     renderBoard();
                 });
-                cell.addEventListener('contextmenu',(e)=>{
-                    e.preventDefault();
-                    if(revealed[rr][cc])return;
-                    flagged[rr][cc]=!flagged[rr][cc];
-                    renderBoard();
-                });
+                cell.addEventListener('contextmenu',(e)=>{e.preventDefault();if(revealed[rr][cc])return;flagged[rr][cc]=!flagged[rr][cc];renderBoard();});
             }
-
             msBoard.appendChild(cell);
         }
         setScore(`💣 ${MINES} minas | 🚩 ${flagCount} banderas`);
     }
-
     init();
-    return ()=>{ msBoard.remove(); };
+    return ()=>msBoard.remove();
 }
 
 // =============================================
@@ -871,8 +953,7 @@ function initMinesweeper() {
 // =============================================
 function initMemory() {
     const EMOJIS=['🐶','🐱','🐭','🐹','🐰','🦊','🐻','🐼'];
-    let cards, flipped, matched, moves, startTime, timerInterval;
-
+    let cards,flipped,matched,moves,startTime,timerInterval;
     const container=document.getElementById('game-container');
     const board=document.createElement('div');
     board.id='memory-board';
@@ -880,13 +961,9 @@ function initMemory() {
 
     function init(){
         const deck=[...EMOJIS,...EMOJIS].sort(()=>Math.random()-0.5);
-        flipped=[]; matched=0; moves=0;
-        startTime=Date.now();
+        flipped=[];matched=0;moves=0;startTime=Date.now();
         clearInterval(timerInterval);
-        timerInterval=setInterval(()=>{
-            const sec=Math.floor((Date.now()-startTime)/1000);
-            setScore(`🔄 ${moves} movimientos | ⏱ ${sec}s`);
-        },500);
+        timerInterval=setInterval(()=>{const sec=Math.floor((Date.now()-startTime)/1000);setScore(`🔄 ${moves} movimientos | ⏱ ${sec}s`);},500);
         cards=deck.map((emoji,i)=>({emoji,id:i,isFlipped:false,isMatched:false}));
         render();
     }
@@ -896,236 +973,152 @@ function initMemory() {
         cards.forEach((card)=>{
             const el=document.createElement('div');
             el.className='mem-card';
-            if(card.isFlipped||card.isMatched){
-                el.classList.add(card.isMatched?'matched':'flipped');
-                el.textContent=card.emoji;
-            }
-            el.addEventListener('click',()=>handleClick(card,el));
+            if(card.isFlipped||card.isMatched){el.classList.add(card.isMatched?'matched':'flipped');el.textContent=card.emoji;}
+            el.addEventListener('click',()=>handleClick(card));
             board.appendChild(el);
         });
     }
 
     function handleClick(card){
         if(card.isFlipped||card.isMatched||flipped.length>=2)return;
-        card.isFlipped=true;
-        flipped.push(card);
-        render();
+        card.isFlipped=true;flipped.push(card);render();
         if(flipped.length===2){
             moves++;
             if(flipped[0].emoji===flipped[1].emoji){
-                flipped[0].isMatched=flipped[1].isMatched=true;
-                matched+=2; flipped=[];
-                if(matched===cards.length){
-                    const sec=Math.floor((Date.now()-startTime)/1000);
-                    clearInterval(timerInterval);
-                    saveHighScore('memory',sec);
-                    setTimeout(()=>alert(`🎉 ¡Ganaste en ${moves} movimientos y ${sec} segundos!`),300);
-                }
+                flipped[0].isMatched=flipped[1].isMatched=true;matched+=2;flipped=[];
+                if(matched===cards.length){const sec=Math.floor((Date.now()-startTime)/1000);clearInterval(timerInterval);saveHighScore('memory',sec);setTimeout(()=>alert(`🎉 ¡Ganaste en ${moves} movimientos y ${sec}s!`),300);}
                 render();
-            } else {
-                setTimeout(()=>{
-                    flipped.forEach(c=>c.isFlipped=false);
-                    flipped=[];
-                    render();
-                },800);
-            }
+            } else {setTimeout(()=>{flipped.forEach(c=>c.isFlipped=false);flipped=[];render();},800);}
         }
     }
-
     init();
-    return ()=>{ clearInterval(timerInterval); board.remove(); };
+    return ()=>{clearInterval(timerInterval);board.remove();};
 }
 
 // =============================================
 // 👾 SPACE INVADERS
 // =============================================
 function initSpaceInvaders() {
-    const W=400, H=400;
+    const W=400,H=400;
     const canvas=document.createElement('canvas');
-    canvas.width=W; canvas.height=H;
+    canvas.width=W;canvas.height=H;
     document.getElementById('game-container').appendChild(canvas);
     const ctx=canvas.getContext('2d');
-
-    const PLAYER_W=30, PLAYER_H=20, BULLET_W=3, BULLET_H=10;
-    const ALIEN_ROWS=3, ALIEN_COLS=8, ALIEN_W=28, ALIEN_H=20;
-    const ALIEN_TYPES=['👾','👾','🛸'];
-
-    let player, bullets, aliens, alienBullets, score, lives, animId, keys;
-    let alienDX, lastAlienMove, alienMoveInterval, waveCount;
+    const PLAYER_W=30,ALIEN_ROWS=3,ALIEN_COLS=8,ALIEN_W=28,ALIEN_H=20;
+    let player,bullets,aliens,alienBullets,score,lives,animId,keys={};
+    let alienDX,lastAlienMove,alienMoveInterval,waveCount,lastShot=0;
 
     function reset(){
-        player={x:W/2-PLAYER_W/2,y:H-40,w:PLAYER_W,h:PLAYER_H};
-        bullets=[]; alienBullets=[]; score=0; lives=3;
-        alienDX=1; lastAlienMove=0; alienMoveInterval=800; waveCount=1;
-        initAliens();
-        setScore(`⭐ 0 | ❤️ ${lives}`);
-        keys={};
+        player={x:W/2-PLAYER_W/2,y:H-40,w:PLAYER_W,h:20};
+        bullets=[];alienBullets=[];score=0;lives=3;
+        alienDX=1;lastAlienMove=0;alienMoveInterval=800;waveCount=1;
+        initAliens();setScore(`⭐ 0 | ❤️❤️❤️`);
     }
 
     function initAliens(){
         aliens=[];
-        for(let r=0;r<ALIEN_ROWS;r++)for(let c=0;c<ALIEN_COLS;c++){
-            aliens.push({x:50+c*38,y:30+r*30,w:ALIEN_W,h:ALIEN_H,alive:true,type:r,row:r,col:c});
-        }
+        for(let r=0;r<ALIEN_ROWS;r++)for(let c=0;c<ALIEN_COLS;c++)
+            aliens.push({x:50+c*38,y:30+r*30,w:ALIEN_W,h:ALIEN_H,alive:true,row:r});
     }
 
-    let lastShot=0;
     function loop(ts){
-        // Mover jugador
-        if(keys['ArrowLeft']&&player.x>0) player.x-=4;
-        if(keys['ArrowRight']&&player.x<W-PLAYER_W) player.x+=4;
-        if(keys[' ']&&ts-lastShot>400){
-            bullets.push({x:player.x+PLAYER_W/2-BULLET_W/2,y:player.y,w:BULLET_W,h:BULLET_H});
-            lastShot=ts;
-        }
-
-        // Mover balas jugador
-        bullets=bullets.filter(b=>b.y>-BULLET_H);
-        bullets.forEach(b=>b.y-=7);
-
-        // Mover aliens
+        if(keys['ArrowLeft']&&player.x>0)player.x-=4;
+        if(keys['ArrowRight']&&player.x<W-PLAYER_W)player.x+=4;
+        if(keys[' ']&&ts-lastShot>400){bullets.push({x:player.x+PLAYER_W/2-1.5,y:player.y,w:3,h:10});lastShot=ts;}
+        bullets=bullets.filter(b=>b.y>-10);bullets.forEach(b=>b.y-=7);
         if(ts-lastAlienMove>alienMoveInterval){
             lastAlienMove=ts;
             const alive=aliens.filter(a=>a.alive);
-            const maxX=Math.max(...alive.map(a=>a.x));
-            const minX=Math.min(...alive.map(a=>a.x));
-            if(maxX+ALIEN_W+alienDX>W-10||minX+alienDX<10){
-                alienDX*=-1;
-                aliens.forEach(a=>a.y+=10);
-            } else {
-                aliens.forEach(a=>a.x+=alienDX*12);
-            }
-            // Disparo aleatorio de alien
-            const shooters=alive.filter(a=>a.alive);
-            if(shooters.length>0){
-                const shooter=shooters[Math.floor(Math.random()*shooters.length)];
-                alienBullets.push({x:shooter.x+ALIEN_W/2,y:shooter.y+ALIEN_H,w:3,h:8});
-            }
+            if(!alive.length)return;
+            const maxX=Math.max(...alive.map(a=>a.x)),minX=Math.min(...alive.map(a=>a.x));
+            if(maxX+ALIEN_W+alienDX*12>W-10||minX+alienDX*12<10){alienDX*=-1;aliens.forEach(a=>a.y+=10);}
+            else aliens.forEach(a=>a.x+=alienDX*12);
+            const shooter=alive[Math.floor(Math.random()*alive.length)];
+            alienBullets.push({x:shooter.x+ALIEN_W/2,y:shooter.y+ALIEN_H,w:3,h:8});
         }
-
-        // Mover balas aliens
-        alienBullets=alienBullets.filter(b=>b.y<H);
-        alienBullets.forEach(b=>b.y+=4);
-
-        // Colisión balas jugador vs aliens
+        alienBullets=alienBullets.filter(b=>b.y<H);alienBullets.forEach(b=>b.y+=4);
         bullets.forEach(b=>{
             aliens.forEach(a=>{
                 if(!a.alive)return;
                 if(b.x<a.x+a.w&&b.x+b.w>a.x&&b.y<a.y+a.h&&b.y+b.h>a.y){
-                    a.alive=false; b.y=-999;
-                    score+=10*(ALIEN_ROWS-a.row);
-                    setScore(`⭐ ${score} | ❤️ ${'❤️'.repeat(lives)}`);
+                    a.alive=false;b.y=-999;score+=10*(ALIEN_ROWS-a.row);
+                    setScore(`⭐ ${score} | ${'❤️'.repeat(lives)}`);
                 }
             });
         });
-
-        // Colisión balas aliens vs jugador
         alienBullets.forEach(b=>{
             if(b.x<player.x+player.w&&b.x+b.w>player.x&&b.y<player.y+player.h&&b.y+b.h>player.y){
-                b.y=999; lives--;
-                setScore(`⭐ ${score} | ${'❤️'.repeat(lives)}`);
-                if(lives<=0){
-                    saveHighScore('spaceinvaders',score);
-                    drawGameOver(ctx,W,score);
-                    cancelAnimationFrame(animId);return;
-                }
+                b.y=999;lives--;setScore(`⭐ ${score} | ${'❤️'.repeat(lives)}`);
+                if(lives<=0){saveHighScore('spaceinvaders',score);drawGameOver(ctx,W,score);cancelAnimationFrame(animId);return;}
             }
         });
-
-        // Aliens llegan abajo
-        if(aliens.filter(a=>a.alive).some(a=>a.y+a.h>=player.y)){
-            drawGameOver(ctx,W,score);
-            saveHighScore('spaceinvaders',score);
-            cancelAnimationFrame(animId);return;
-        }
-
-        // Nueva oleada
-        if(aliens.every(a=>!a.alive)){
-            waveCount++;
-            alienMoveInterval=Math.max(150,800-waveCount*80);
-            initAliens();
-        }
-
-        draw();
-        animId=requestAnimationFrame(loop);
-    }
-
-    function draw(){
-        ctx.fillStyle='#050510'; ctx.fillRect(0,0,W,H);
-        // Estrellas
+        if(aliens.filter(a=>a.alive).some(a=>a.y+a.h>=player.y)){saveHighScore('spaceinvaders',score);drawGameOver(ctx,W,score);cancelAnimationFrame(animId);return;}
+        if(aliens.every(a=>!a.alive)){waveCount++;alienMoveInterval=Math.max(150,800-waveCount*80);initAliens();}
+        ctx.fillStyle='#050510';ctx.fillRect(0,0,W,H);
         ctx.fillStyle='rgba(255,255,255,0.3)';
-        for(let i=0;i<30;i++){
-            ctx.fillRect((i*137+score*0.1)%W,(i*73)%H,1,1);
-        }
-        // Aliens
-        ctx.font=`${ALIEN_H}px Arial`;
-        ctx.textAlign='center';
-        aliens.forEach(a=>{
-            if(!a.alive)return;
-            ctx.fillText(ALIEN_TYPES[a.type]||'👾',a.x+ALIEN_W/2,a.y+ALIEN_H);
-        });
-        // Jugador
-        ctx.fillStyle='#4af';
-        ctx.fillRect(player.x,player.y,player.w,player.h);
+        for(let i=0;i<30;i++)ctx.fillRect((i*137+score*0.1)%W,(i*73)%H,1,1);
+        ctx.font=`${ALIEN_H}px Arial`;ctx.textAlign='center';
+        aliens.forEach(a=>{if(!a.alive)return;ctx.fillText(['👾','👾','🛸'][a.row]||'👾',a.x+ALIEN_W/2,a.y+ALIEN_H);});
+        ctx.fillStyle='#4af';ctx.fillRect(player.x,player.y,player.w,player.h);
         ctx.fillRect(player.x+player.w/2-4,player.y-6,8,6);
-        ctx.shadowColor='#4af'; ctx.shadowBlur=8;
-        ctx.shadowBlur=0;
-        // Balas jugador
-        ctx.fillStyle='#ff0';
-        ctx.shadowColor='#ff0'; ctx.shadowBlur=6;
-        bullets.forEach(b=>ctx.fillRect(b.x,b.y,b.w,b.h));
-        ctx.shadowBlur=0;
-        // Balas aliens
-        ctx.fillStyle='#f44';
-        ctx.shadowColor='#f44'; ctx.shadowBlur=6;
-        alienBullets.forEach(b=>ctx.fillRect(b.x,b.y,b.w,b.h));
-        ctx.shadowBlur=0;
+        ctx.fillStyle='#ff0';ctx.shadowColor='#ff0';ctx.shadowBlur=6;
+        bullets.forEach(b=>ctx.fillRect(b.x,b.y,b.w,b.h));ctx.shadowBlur=0;
+        ctx.fillStyle='#f44';ctx.shadowColor='#f44';ctx.shadowBlur=6;
+        alienBullets.forEach(b=>ctx.fillRect(b.x,b.y,b.w,b.h));ctx.shadowBlur=0;
         ctx.textAlign='left';
+        animId=requestAnimationFrame(loop);
     }
 
     function keyDown(e){if([' ','ArrowLeft','ArrowRight'].includes(e.key))e.preventDefault();keys[e.key]=true;}
     function keyUp(e){keys[e.key]=false;}
     document.addEventListener('keydown',keyDown);
     document.addEventListener('keyup',keyUp);
-
-    reset();
-    animId=requestAnimationFrame(loop);
+    reset();animId=requestAnimationFrame(loop);
     return ()=>{cancelAnimationFrame(animId);document.removeEventListener('keydown',keyDown);document.removeEventListener('keyup',keyUp);};
 }
 
 // =============================================
-// HELPERS
+// 🐸 FROGGER
 // =============================================
-function drawGameOver(ctx, size, score) {
-    ctx.fillStyle='rgba(0,0,0,0.75)';
-    ctx.fillRect(0,0,size,size||400);
-    ctx.fillStyle='red';
-    ctx.font='bold 36px Courier New';
-    ctx.textAlign='center';
-    ctx.fillText('GAME OVER',size/2,(size||400)/2-20);
-    ctx.fillStyle='white';
-    ctx.font='20px Courier New';
-    ctx.fillText(`Score: ${score}`,size/2,(size||400)/2+20);
-    ctx.fillStyle='#aaa';
-    ctx.font='14px Courier New';
-    ctx.fillText('Presioná 🔄 para jugar de nuevo',size/2,(size||400)/2+55);
-    ctx.textAlign='left';
-}
+function initFrogger() {
+    const W=400, H=400, CELL=40, COLS=10, ROWS=10;
+    const canvas=document.createElement('canvas');
+    canvas.width=W; canvas.height=H;
+    document.getElementById('game-container').appendChild(canvas);
+    const ctx=canvas.getContext('2d');
 
-function drawWin(ctx, W, H, text) {
-    ctx.fillStyle='rgba(0,0,0,0.75)';
-    ctx.fillRect(0,0,W,H);
-    ctx.fillStyle='lime';
-    ctx.font='bold 30px Courier New';
-    ctx.textAlign='center';
-    ctx.fillText(text,W/2,H/2);
-    ctx.textAlign='left';
-}
+    let frog, cars, logs, score, lives, animId, level;
 
-// =============================================
-// INICIAR
-// =============================================
-updateHighScoreDisplays();
-</script>
-</body>
-</html>
+    const LANE_COLORS=['#1a3a1a','#2a2a2a','#2a2a2a','#2a2a2a','#2a2a2a','#1a2a3a','#1a2a3a','#1a2a3a','#1a2a3a','#1a3a1a'];
+
+    function reset(){
+        frog={x:4, y:9, onLog:false, logRef:null};
+        score=0; lives=3; level=1;
+        setScore(`⭐ 0 | ❤️❤️❤️`);
+        initObstacles();
+    }
+
+    function initObstacles(){
+        // Autos (filas 1-4, van en distintas direcciones)
+        cars=[
+            // fila, velocidad, dirección, posiciones x
+            ...Array.from({length:3},(_,i)=>({row:1, x:i*130+Math.random()*50, speed:1.5+level*0.3, dir:1, w:50, h:28, color:'#f44'})),
+            ...Array.from({length:3},(_,i)=>({row:2, x:i*120+Math.random()*50, speed:2+level*0.3, dir:-1, w:50, h:28, color:'#f84'})),
+            ...Array.from({length:2},(_,i)=>({row:3, x:i*180+Math.random()*50, speed:1.2+level*0.2, dir:1, w:70, h:28, color:'#ff4'})),
+            ...Array.from({length:3},(_,i)=>({row:4, x:i*110+Math.random()*50, speed:2.5+level*0.4, dir:-1, w:45, h:28, color:'#f4f'})),
+        ];
+        // Troncos (filas 6-8)
+        logs=[
+            ...Array.from({length:2},(_,i)=>({row:6, x:i*200+Math.random()*50, speed:1+level*0.2, dir:1, w:90, h:28})),
+            ...Array.from({length:3},(_,i)=>({row:7, x:i*140+Math.random()*40, speed:1.5+level*0.2, dir:-1, w:70, h:28})),
+            ...Array.from({length:2},(_,i)=>({row:8, x:i*180+Math.random()*60, speed:1.2+level*0.2, dir:1, w:100, h:28})),
+        ];
+    }
+
+    function loop(){
+        // Mover autos
+        cars.forEach(c=>{
+            c.x+=c.speed*c.dir;
+            if(c.dir===1&&c.x>W+10) c.x=-c.w-10;
+            if(c.dir===-1&&c.x<-c.w-10) c.x=W+10;
+        });
